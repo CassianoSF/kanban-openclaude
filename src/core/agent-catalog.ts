@@ -58,6 +58,14 @@ export const RUNTIME_AGENT_CATALOG: RuntimeAgentCatalogEntry[] = [
 		autonomousArgs: ["--yolo"],
 		installUrl: "https://github.com/google-gemini/gemini-cli",
 	},
+	{
+		id: "openclaude",
+		label: "OpenClaude",
+		binary: "openclaude",
+		baseArgs: [],
+		autonomousArgs: ["--dangerously-skip-permissions"],
+		installUrl: "https://github.com/Gitlawb/openclaude",
+	},
 ];
 
 // Temporarily keep launch support scoped to the core agent set.
@@ -67,6 +75,7 @@ export const RUNTIME_LAUNCH_SUPPORTED_AGENT_IDS: readonly RuntimeAgentId[] = [
 	"claude",
 	"codex",
 	"droid",
+	"openclaude",
 	// "opencode",
 	// "gemini",
 ];

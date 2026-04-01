@@ -24,7 +24,15 @@ export interface RenderAppendSystemPromptOptions {
 	agentId?: RuntimeAgentId | null;
 }
 
-const APPEND_PROMPT_AGENT_IDS: readonly RuntimeAgentId[] = ["claude", "codex", "cline", "droid", "gemini", "opencode"];
+const APPEND_PROMPT_AGENT_IDS: readonly RuntimeAgentId[] = [
+	"claude",
+	"codex",
+	"cline",
+	"droid",
+	"gemini",
+	"opencode",
+	"openclaude",
+];
 
 function isRuntimeAgentId(value: string): value is RuntimeAgentId {
 	return APPEND_PROMPT_AGENT_IDS.includes(value as RuntimeAgentId);
@@ -56,6 +64,8 @@ function renderLinearSetupGuidanceForAgent(agentId: RuntimeAgentId | null): stri
 			return "- If Linear MCP is not available in the current agent (OpenCode), suggest running `opencode mcp add`, then use name `linear` and URL `https://mcp.linear.app/mcp`.";
 		case "droid":
 			return "- If Linear MCP is not available in the current agent (Droid), suggest running: `droid mcp add linear https://mcp.linear.app/mcp --type http`";
+		case "openclaude":
+			return "- If Linear MCP is not available in the current agent (OpenClaude), suggest running: `openclaude mcp add --transport http --scope user linear https://mcp.linear.app/mcp`";
 		default:
 			return "- If Linear MCP is not available, provide setup instructions for the active agent only, then continue once OAuth is complete.";
 	}

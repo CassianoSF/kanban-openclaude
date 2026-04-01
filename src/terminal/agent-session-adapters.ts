@@ -1328,6 +1328,120 @@ const clineAdapter: AgentSessionAdapter = {
 	},
 };
 
+const openclaudeAdapter: AgentSessionAdapter = {
+	async prepare(input) {
+		const args = [...input.args];
+		const env: Record<string, string | undefined> = {};
+		const appendedSystemPrompt = resolveHomeAgentAppendSystemPrompt(input.taskId);
+
+		if (
+			input.autonomousModeEnabled &&
+			!input.startInPlanMode &&
+			!hasCliOption(args, "--dangerously-skip-permissions")
+		) {
+			args.push("--dangerously-skip-permissions");
+		}
+		if (input.resumeFromTrash && !hasCliOption(args, "--continue")) {
+			args.push("--continue");
+		}
+		if (input.startInPlanMode) {
+			const withoutImmediateBypass = args.filter((arg) => arg !== "--dangerously-skip-permissions");
+			args.length = 0;
+			args.push(...withoutImmediateBypass);
+			if (!hasCliOption(args, "--allow-dangerously-skip-permissions")) {
+				args.push("--allow-dangerously-skip-permissions");
+			}
+			args.push("--permission-mode", "plan");
+		}
+
+		const hooks = resolveHookContext(input);
+		if (hooks) {
+			const settingsPath = join(getHookAgentDirectory("openclaude"), "settings.json");
+			const hooksSettings = {
+				hooks: {
+					Stop: [
+						{ hooks: [{ type: "command", command: buildHookCommand("to_review", { source: "openclaude" }) }] },
+					],
+					SubagentStop: [
+						{ hooks: [{ type: "command", command: buildHookCommand("activity", { source: "openclaude" }) }] },
+					],
+					PreToolUse: [
+						{
+							matcher: "*",
+							hooks: [{ type: "command", command: buildHookCommand("activity", { source: "openclaude" }) }],
+						},
+					],
+					PermissionRequest: [
+						{
+							matcher: "*",
+							hooks: [{ type: "command", command: buildHookCommand("to_review", { source: "openclaude" }) }],
+						},
+					],
+					PostToolUse: [
+						{
+							matcher: "*",
+							hooks: [
+								{ type: "command", command: buildHookCommand("to_in_progress", { source: "openclaude" }) },
+							],
+						},
+					],
+					PostToolUseFailure: [
+						{
+							matcher: "*",
+							hooks: [
+								{ type: "command", command: buildHookCommand("to_in_progress", { source: "openclaude" }) },
+							],
+						},
+					],
+					Notification: [
+						{
+							matcher: "permission_prompt",
+							hooks: [{ type: "command", command: buildHookCommand("to_review", { source: "openclaude" }) }],
+						},
+						{
+							matcher: "*",
+							hooks: [{ type: "command", command: buildHookCommand("activity", { source: "openclaude" }) }],
+						},
+					],
+					UserPromptSubmit: [
+						{
+							hooks: [
+								{ type: "command", command: buildHookCommand("to_in_progress", { source: "openclaude" }) },
+							],
+						},
+					],
+				},
+			};
+			await ensureTextFile(settingsPath, JSON.stringify(hooksSettings, null, 2));
+			args.push("--settings", settingsPath);
+			Object.assign(
+				env,
+				createHookRuntimeEnv({
+					taskId: hooks.taskId,
+					workspaceId: hooks.workspaceId,
+				}),
+			);
+		}
+
+		if (
+			appendedSystemPrompt &&
+			!hasCliOption(args, "--append-system-prompt") &&
+			!hasCliOption(args, "--system-prompt")
+		) {
+			args.push("--append-system-prompt", appendedSystemPrompt);
+		}
+
+		const withPromptLaunch = withPrompt(args, input.prompt, "append");
+		return {
+			...withPromptLaunch,
+			env: {
+				...withPromptLaunch.env,
+				...env,
+			},
+		};
+	},
+};
+
 const ADAPTERS: Record<RuntimeAgentId, AgentSessionAdapter> = {
 	claude: claudeAdapter,
 	codex: codexAdapter,
@@ -1335,6 +1449,7 @@ const ADAPTERS: Record<RuntimeAgentId, AgentSessionAdapter> = {
 	opencode: opencodeAdapter,
 	droid: droidAdapter,
 	cline: clineAdapter,
+	openclaude: openclaudeAdapter,
 };
 
 export async function prepareAgentLaunch(input: AgentAdapterLaunchInput): Promise<PreparedAgentLaunch> {
