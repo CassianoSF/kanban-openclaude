@@ -196,6 +196,32 @@ describe("prepareAgentLaunch hook strategies", () => {
 		expect(plugin).toContain('currentState = "idle"');
 	});
 
+	it("writes Kanban sidebar instructions for home OpenCode sessions", async () => {
+		setupTempHome();
+		setKanbanProcessContext();
+		const launch = await prepareAgentLaunch({
+			taskId: "__home_agent__:workspace-1:opencode",
+			agentId: "opencode",
+			binary: "opencode",
+			args: [],
+			cwd: "/tmp",
+			prompt: "",
+		});
+
+		expect(launch.env.OPENCODE_CONFIG).toBeDefined();
+		const configPath = launch.env.OPENCODE_CONFIG!;
+		const config = JSON.parse(readFileSync(configPath, "utf8")) as {
+			instructions?: string[];
+			plugin?: string[];
+		};
+		expect(config.instructions).toBeDefined();
+		expect(config.instructions!.length).toBeGreaterThanOrEqual(1);
+		const instructionsPath = config.instructions![0];
+		const instructions = readFileSync(instructionsPath, "utf8");
+		expect(instructions).toContain("Kanban sidebar agent");
+		expect(instructions).toContain("task create");
+	});
+
 	it("loads OpenCode preferred model from LOCALAPPDATA state and auth paths", async () => {
 		const homePath = setupTempHome();
 		const localAppDataPath = join(homePath, "AppData", "Local");

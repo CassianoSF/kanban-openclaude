@@ -1138,28 +1138,41 @@ const opencodeAdapter: AgentSessionAdapter = {
 		}
 
 		const hooks = resolveHookContext(input);
-		if (hooks) {
-			const pluginPath = join(getHookAgentDirectory("opencode"), "kanban.js");
-			const configPath = join(getHookAgentDirectory("opencode"), "opencode.json");
+		const appendedSystemPrompt = resolveHomeAgentAppendSystemPrompt(input.taskId);
+		if (hooks || appendedSystemPrompt) {
+			const hookDir = getHookAgentDirectory("opencode");
+			const pluginPath = join(hookDir, "kanban.js");
+			const configPath = join(hookDir, "opencode.json");
 
-			const pluginContent = buildOpenCodePluginContent(
-				buildHookCommand("to_review", { source: "opencode" }),
-				buildHookCommand("to_in_progress", { source: "opencode" }),
-				buildHookCommand("activity", { source: "opencode" }),
-			);
-			await ensureTextFile(pluginPath, pluginContent);
-			const pluginFileUrl = pathToFileURL(pluginPath).href;
-			const config = {
-				plugin: [pluginFileUrl],
-			};
+			if (hooks) {
+				const pluginContent = buildOpenCodePluginContent(
+					buildHookCommand("to_review", { source: "opencode" }),
+					buildHookCommand("to_in_progress", { source: "opencode" }),
+					buildHookCommand("activity", { source: "opencode" }),
+				);
+				await ensureTextFile(pluginPath, pluginContent);
+			}
+
+			const config: Record<string, unknown> = {};
+			if (hooks) {
+				config.plugin = [pathToFileURL(pluginPath).href];
+			}
+			if (appendedSystemPrompt) {
+				const instructionsPath = join(hookDir, "kanban-instructions.md");
+				await ensureTextFile(instructionsPath, appendedSystemPrompt);
+				config.instructions = [instructionsPath];
+			}
 			await ensureTextFile(configPath, JSON.stringify(config));
-			Object.assign(
-				env,
-				createHookRuntimeEnv({
-					taskId: hooks.taskId,
-					workspaceId: hooks.workspaceId,
-				}),
-			);
+
+			if (hooks) {
+				Object.assign(
+					env,
+					createHookRuntimeEnv({
+						taskId: hooks.taskId,
+						workspaceId: hooks.workspaceId,
+					}),
+				);
+			}
 			env.OPENCODE_CONFIG = configPath;
 		}
 
